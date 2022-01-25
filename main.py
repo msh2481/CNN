@@ -1,4 +1,4 @@
-# !pip install neptune-client qhoptim albumentations
+# !pip install neptune-client qhoptim
 import torch
 from routines import run
 
@@ -8,10 +8,19 @@ config = {
     'register_run': False,
     'connect_to_project': False,
 
+    'jitter_brightness': 0.0,
+    'jitter_contrast': 0.0,
+    'jitter_saturation': 0.0,
+    'jitter_hue': 0.0,
+    'perspective_distortion': 0.0,
+    'cutout_count': 0,
+    'cutout_min_size': 8,
+    'cutout_max_size': 16,
+
     'model': 'Dummy()',
     'batch_size': 100,
     'plot_interval': 100,
-    'train': 'train_v2.bin',
+    'train': 'train_v3.bin',
     'use_per': True,
     'per_alpha': 0.6,
     'per_beta': 0.6,

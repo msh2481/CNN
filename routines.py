@@ -2,7 +2,6 @@ import static as st
 
 import torch.nn as nn
 from stats import complex_hash
-from autoaug import autoaug
 from tqdm import trange, tqdm
 from tianshou.data import Batch, PrioritizedReplayBuffer
 
@@ -15,7 +14,7 @@ def train_epoch(model, dataloader, optimizer, logging=None, interval=None):
         optimizer.zero_grad()
         # with torch.autocast(dtype=torch.bfloat16, device_type="cpu"):
         x, y = x.to(st.device), y.to(st.device)
-        loss = loss_fn(model(autoaug(x)), y)
+        loss = loss_fn(model(st.aug(x)), y)
         loss.backward()
         optimizer.step()
         if logging and (not interval or batch % interval == 0):
@@ -92,7 +91,7 @@ def train_batch_with_per(model, replay_buffer, optimizer, batch_size):
     d = replay_buffer[ids]
     x = d.obs.to(st.device)
     y = torch.tensor(d.act, device=st.device)
-    loss = loss_fn(model(autoaug(x)), y)
+    loss = loss_fn(model(st.aug(x)), y)
     replay_buffer.update_weight(ids, loss)
     loss.mean().backward()
     optimizer.step()
@@ -130,6 +129,7 @@ from data import Plug, build_dataset, build_model, build_optimizer, build_lr_sch
 from time import time
 from torch.utils.data import DataLoader
 from plotly import express as px
+from autoaug import build_transforms
 
 def run(config):
     [print(f'{key}: {value}', flush=True) for key, value in config.items()]
@@ -146,29 +146,29 @@ def run(config):
     model = build_model(config)
     optimizer = build_optimizer(model.parameters(), config)
     train_set = build_dataset(config['train'])
+    st.aug = build_transforms(config)
+    pics = st.aug(torch.stack([e[0] for e in train_set[:5]]))
+    for pic in pics:
+        pic = pic.clip(0, 1)
+        px.imshow(pic.permute(1, 2, 0)).show()
 
-    # pics = autoaug(image=torch.stack([e[0] for e in train_set[:5]]))
-    # for pic in pics:
-    #     pic = pic.clip(0, 1)
-    #     px.imshow(pic.permute(1, 2, 0)).show()
 
-
-    if config['use_per']:
-        if train_set:
-            st.train_loader = PrioritizedReplayBuffer(size=len(train_set), alpha=config['per_alpha'], beta=config['per_beta'])
-            for x, y in train_set:
-                st.train_loader.add(Batch(obs=x, act=y, rew=0, done=False))
-        else:
-            st.train_loader = None
-    else:
-        st.train_loader = DataLoader(train_set, batch_size=config['batch_size'], shuffle=True) if train_set else None
-    scheduler = build_lr_scheduler(optimizer, config)
-    val_set, test_set = build_dataset(config['val']), build_dataset(config['test'])
-    st.val_loader = DataLoader(val_set, batch_size=config['batch_size'], shuffle=False) if val_set else None
-    st.test_loader = DataLoader(test_set, batch_size=config['batch_size'], shuffle=False) if test_set else None
-    if train_set:
-        if config['use_per']:
-            train_model_per(model, optimizer, scheduler, config['epochs'], len(train_set) // config['batch_size'], config['batch_size'], config['plot_interval'])
-        else:
-            train_model_common(model, optimizer, scheduler, config['epochs'], config['plot_interval'])
-    save_to_zoo(model, f'{st.run_id}_final', *test(model, st.val_loader))
+    # if config['use_per']:
+    #     if train_set:
+    #         st.train_loader = PrioritizedReplayBuffer(size=len(train_set), alpha=config['per_alpha'], beta=config['per_beta'])
+    #         for x, y in train_set:
+    #             st.train_loader.add(Batch(obs=x, act=y, rew=0, done=False))
+    #     else:
+    #         st.train_loader = None
+    # else:
+    #     st.train_loader = DataLoader(train_set, batch_size=config['batch_size'], shuffle=True) if train_set else None
+    # scheduler = build_lr_scheduler(optimizer, config)
+    # val_set, test_set = build_dataset(config['val']), build_dataset(config['test'])
+    # st.val_loader = DataLoader(val_set, batch_size=config['batch_size'], shuffle=False) if val_set else None
+    # st.test_loader = DataLoader(test_set, batch_size=config['batch_size'], shuffle=False) if test_set else None
+    # if train_set:
+    #     if config['use_per']:
+    #         train_model_per(model, optimizer, scheduler, config['epochs'], len(train_set) // config['batch_size'], config['batch_size'], config['plot_interval'])
+    #     else:
+    #         train_model_common(model, optimizer, scheduler, config['epochs'], config['plot_interval'])
+    # save_to_zoo(model, f'{st.run_id}_final', *test(model, st.val_loader))

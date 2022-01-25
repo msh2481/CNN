@@ -29,17 +29,6 @@ def build_dataset(name):
             data = pickle.load(f)
     return data
 
-def smooth(pic):
-    assert pic.shape == (3, 32, 32)
-    s = torch.ones_like(pic) * pic.mean(dim=(1, 2)).view(3, 1, 1)
-    b = (0 < pic) & (pic < 1)
-    g = torch.where(b, pic, s)
-    s[:, 1:, :] += g[:, :-1, :]
-    s[:, :-1, :] += g[:, 1:, :]
-    s[:, :, 1:] += g[:, :, :-1]
-    s[:, :, :-1] += g[:, :, 1:]
-    return torch.where(b, pic, s/4)
-
 from models import *
 from git_utils import load_from_zoo
 def build_model(config):
