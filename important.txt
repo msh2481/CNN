@@ -1,0 +1,13 @@
+Single:
+M7()_61eadb09_6.p, acc: 0.9358000755310059, loss: 0.22565355896949768
+M7()_61eeb5af_13.p, acc: 0.932799756526947, loss: 0.2498636245727539
+Resnet18(10)_61eb157c_final.p, acc: 0.9346000552177429, loss: 0.2703644335269928
+Resnet18(10)_61eb153a_final.p, acc: 0.9322000741958618, loss: 0.2682918310165405
+Resnet18(10)_61eb15c8_final.p, acc: 0.9343000650405884, loss: 0.2648896872997284
+Resnet18(10)_61eb15f6_final.p, acc: 0.9287000894546509, loss: 0.27281442284584045
+Densenet161(10)_61eb0f67_9.p, acc: 0.9284001588821411, loss: 0.28308334946632385
+WideResnet50(10)_61eaf152_49.p, acc: 0.828700065612793, loss: 0.5405305027961731
+
+Ensembles:
+MixedEnsemble()_61eb190e_final.p, acc: 0.9455000162124634, loss: 0.18904252350330353
+(MixedEnsemble([load_from_zoo("M7()_61eadb09_6.p"),load_from_zoo("Resnet18(10)_61eb157c_final.p"),load_from_zoo("Resnet18(10)_61eb153a_final.p"),load_from_zoo("Resnet18(10)_61eb15c8_final.p"),load_from_zoo("Densenet161(10)_61eb0f67_9.p")], True)
