@@ -14,7 +14,31 @@
 ## Собственно отчёт
 Заменил `Autoaugment` на отдельные преобразования, добавил параметры к cutout.
 По-новой сгладил данные, на этот раз получилось лучше, шума совсем не видно.
+Наконец сделал нормальный перебор гиперпараметров, для начала просто случайный поиск, распределения такие (`norm_rnd(mean, std, clip_min, clip_max)`):
 
+    cutout_min = norm_rnd(4, 4, 0, 16)
+    bs = 2**randint(5, 10)
+
+    'jitter_brightness': norm_rnd(0, 0.1, 0, 0.5),
+    'jitter_contrast': norm_rnd(0, 0.1, 0, 0.5),
+    'jitter_saturation': norm_rnd(0, 0.1, 0, 0.5),
+    'jitter_hue': norm_rnd(0, 0.1, 0, 0.5),
+    'perspective_distortion': norm_rnd(0, 0.1, 0, 1),
+    'cutout_count': int(norm_rnd(0, 1, 0, 10)),
+    'cutout_min_size': int(cutout_min),
+    'cutout_max_size': int(cutout_min * norm_rnd(2, 0.5, 1, 10)),
+
+    'model': choice(['M5()', 'M7()', 'Resnet18(10)']),
+    'batch_size': bs,
+
+    'optimizer': 'QHAdam',
+    'lr': 10**norm_rnd(-3, 1, -6, -1),
+    'wd': 10**norm_rnd(-4, 1, -7, -2),
+    'beta1': 0.9,
+    'beta2': 0.999,
+    'nu1': norm_rnd(0.5, 0.2, 0.1, 0.9),
+    'nu2': norm_rnd(1, 0.1, 0.8, 1)
+`
 ## TODO
 Дистилляция чего-нибудь с чем-нибудь.
 Optuna и другие оптимизаторы гиперпараметров.
