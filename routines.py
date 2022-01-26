@@ -27,7 +27,7 @@ def test(model, dataloader, loss_fn=nn.NLLLoss()):
     num_batches = len(dataloader)
     test_loss, correct = 0, 0
     for x, y in dataloader:
-        x, y = x.to(st.device), y.to(st.device)
+        x, y = x.to(st.device), y.to(st.device, dtype=int)
         pred = model(x)
         test_loss = test_loss + loss_fn(pred, y)
         correct += (pred.argmax(dim=-1) == y).to(torch.float).mean()
