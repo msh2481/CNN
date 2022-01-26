@@ -182,7 +182,7 @@ def uni_rnd(l, r):
     return l + (r - l) * torch.rand(1).item()
 from random import randint, choice
 
-def gen_config():
+def gen_config(epochs):
     cutout_min = norm_rnd(4, 4, 0, 16)
     bs = 2**randint(5, 10)
     return {
@@ -216,5 +216,5 @@ def gen_config():
         'beta2': 0.999,
         'nu1': norm_rnd(0.5, 0.2, 0.1, 0.9),
         'nu2': norm_rnd(1, 0.1, 0.8, 1),
-        'epochs': 5
+        'epochs': epochs
     }

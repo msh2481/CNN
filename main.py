@@ -39,4 +39,4 @@ from routines import run, gen_config
 #     'epochs': 50
 # }
 
-run(gen_config())
+run(gen_config(2))
