@@ -147,28 +147,74 @@ def run(config):
     optimizer = build_optimizer(model.parameters(), config)
     train_set = build_dataset(config['train'])
     st.aug = build_transforms(config)
-    pics = st.aug(torch.stack([e[0] for e in train_set[:5]]))
-    for pic in pics:
-        pic = pic.clip(0, 1)
-        px.imshow(pic.permute(1, 2, 0)).show()
+    # pics = st.aug(torch.stack([e[0] for e in train_set[:5]]))
+    # for pic in pics:
+    #     pic = pic.clip(0, 1)
+    #     px.imshow(pic.permute(1, 2, 0)).show()
 
+    if config['use_per']:
+        if train_set:
+            st.train_loader = PrioritizedReplayBuffer(size=len(train_set), alpha=config['per_alpha'], beta=config['per_beta'])
+            for x, y in train_set:
+                st.train_loader.add(Batch(obs=x, act=y, rew=0, done=False))
+        else:
+            st.train_loader = None
+    else:
+        st.train_loader = DataLoader(train_set, batch_size=config['batch_size'], shuffle=True) if train_set else None
+    scheduler = build_lr_scheduler(optimizer, config)
+    val_set, test_set = build_dataset(config['val']), build_dataset(config['test'])
+    st.val_loader = DataLoader(val_set, batch_size=config['batch_size'], shuffle=False) if val_set else None
+    st.test_loader = DataLoader(test_set, batch_size=config['batch_size'], shuffle=False) if test_set else None
+    if train_set:
+        if config['use_per']:
+            train_model_per(model, optimizer, scheduler, config['epochs'], len(train_set) // config['batch_size'], config['batch_size'], config['plot_interval'])
+        else:
+            train_model_common(model, optimizer, scheduler, config['epochs'], config['plot_interval'])
+    save_to_zoo(model, f'{st.run_id}_final', *test(model, st.val_loader))
 
-    # if config['use_per']:
-    #     if train_set:
-    #         st.train_loader = PrioritizedReplayBuffer(size=len(train_set), alpha=config['per_alpha'], beta=config['per_beta'])
-    #         for x, y in train_set:
-    #             st.train_loader.add(Batch(obs=x, act=y, rew=0, done=False))
-    #     else:
-    #         st.train_loader = None
-    # else:
-    #     st.train_loader = DataLoader(train_set, batch_size=config['batch_size'], shuffle=True) if train_set else None
-    # scheduler = build_lr_scheduler(optimizer, config)
-    # val_set, test_set = build_dataset(config['val']), build_dataset(config['test'])
-    # st.val_loader = DataLoader(val_set, batch_size=config['batch_size'], shuffle=False) if val_set else None
-    # st.test_loader = DataLoader(test_set, batch_size=config['batch_size'], shuffle=False) if test_set else None
-    # if train_set:
-    #     if config['use_per']:
-    #         train_model_per(model, optimizer, scheduler, config['epochs'], len(train_set) // config['batch_size'], config['batch_size'], config['plot_interval'])
-    #     else:
-    #         train_model_common(model, optimizer, scheduler, config['epochs'], config['plot_interval'])
-    # save_to_zoo(model, f'{st.run_id}_final', *test(model, st.val_loader))
+def norm_rnd(loc, scale, l, r):
+    generator = torch.distributions.Normal(loc, scale)
+    a = generator.sample(sample_shape=()).item()
+    assert l < r
+    return max(l, min(r, a))
+
+def uni_rnd(l, r):
+    return l + (r - l) * torch.rand(1).item()
+from random import randint, choice
+
+def gen_config():
+    cutout_min = norm_rnd(4, 4, 0, 16)
+    bs = 2**randint(5, 10)
+    return {
+        'project_name': 'mlxa/CNN',
+        'api_token': 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==',
+        'register_run': True,
+        'connect_to_project': True,
+
+        'jitter_brightness': norm_rnd(0, 0.1, 0, 0.5),
+        'jitter_contrast': norm_rnd(0, 0.1, 0, 0.5),
+        'jitter_saturation': norm_rnd(0, 0.1, 0, 0.5),
+        'jitter_hue': norm_rnd(0, 0.1, 0, 0.5),
+        'perspective_distortion': norm_rnd(0, 0.1, 0, 1),
+        'cutout_count': int(norm_rnd(0, 1, 0, 10)),
+        'cutout_min_size': int(cutout_min),
+        'cutout_max_size': int(cutout_min * norm_rnd(2, 0.5, 1, 10)),
+
+        'model': choice(['M5()', 'M7()', 'Resnet18(10)']),
+        'batch_size': bs,
+        'plot_interval': (4000 + bs - 1) // bs,
+        'train': 'train_v3.bin',
+        'use_per': False,
+        'val': 'val_v3.bin',
+        'test': None,
+        'device': 'cuda' if torch.cuda.is_available() else 'cpu',
+
+        'optimizer': 'QHAdam',
+        'lr': 10**norm_rnd(-3, 1, -6, -1),
+        'wd': 10**norm_rnd(-4, 1, -7, -2),
+        'beta1': 0.9,
+        'beta2': 0.999,
+        'nu1': norm_rnd(0.5, 0.2, 0.1, 0.9),
+        'nu2': norm_rnd(1, 0.1, 0.8, 1),
+        'epochs': 5
+    }

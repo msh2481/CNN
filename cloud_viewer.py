@@ -34,26 +34,14 @@ def smooth(pic):
     c[:, :, :-1] += b[:, :, 1:]
     return torch.where(b, pic, s/c)
 
-old_name = 'test_v1.bin'
-new_name = 'test_v3.bin'
+# old_name = 'test_v1.bin'
+# new_name = 'test_v3.bin'
 
-def info(x):
-	return x.min(), x.max(), x.mean(), x.std()
+# def info(x):
+# 	return x.min(), x.max(), x.mean(), x.std()
 
-data = build_dataset(old_name)
-new = []
-for x, y in tqdm(data):
-	# xx = smooth(x)
-	# xxx = smooth(xx)
-	# print(info(x))
-	# print(info(xx))
-	# print(info(xxx))
-	# for i in range(32):
-	# 	for j in range(32):
-	# 		if ((0 < x[:, i, j]) & (x[:, i, j] < 1)).all():
-	# 			continue
-	# 		print(x[:, i, j], xx[:, i, j], xxx[:, i, j])
-	# break
-	# new.append((x, y))
-	new.append((smooth(smooth(x)), torch.tensor(y)))
-torch.save(new, new_name)
+# data = build_dataset(old_name)
+# new = []
+# for x, y in tqdm(data):
+# 	new.append((smooth(smooth(x)), torch.tensor(y)))
+# torch.save(new, new_name)
