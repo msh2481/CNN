@@ -216,7 +216,7 @@ def gen_config(epochs):
         'beta2': 0.999,
         'nu1': norm_rnd(0.5, 0.2, 0.1, 0.9),
         'nu2': 1,
-        'epochs': epochs
+        'epochs': epochs,
 
         'tag': 'sweep2'
     }
