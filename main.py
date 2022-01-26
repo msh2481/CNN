@@ -37,4 +37,4 @@ config = {
     'epochs': 50
 }
 
-run(gen_config(2))
+run(gen_config(5))
