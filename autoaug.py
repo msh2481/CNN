@@ -5,11 +5,11 @@ from torch import nn
 
 class Cutout(nn.Module):
 	def __init__(self, config):
-		super(Cutout, self).__int__()
-		self.count = nn.Parameter(config['cutout_count'])
-		self.min_size = nn.Parameter(config['cutout_min_size'])
-		self.max_size = nn.Parameter(config['cutout_max_size'])
-	def forward(tensor):
+		super(Cutout, self).__init__()
+		self.count = config['cutout_count']
+		self.min_size = config['cutout_min_size']
+		self.max_size = config['cutout_max_size']
+	def forward(self, tensor):
 		assert tensor.dtype == torch.float
 		cutted = tensor.detach()
 		assert tensor.shape[1:] == (3, 32, 32) and len(tensor.shape) == 4
