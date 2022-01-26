@@ -13,7 +13,7 @@ def train_epoch(model, dataloader, optimizer, logging=None, interval=None):
     for batch, (x, y) in (enumerate(dataloader)):
         optimizer.zero_grad()
         # with torch.autocast(dtype=torch.bfloat16, device_type="cpu"):
-        x, y = x.to(st.device), y.to(st.device)
+        x, y = x.to(st.device), y.to(st.device, dtype=int)
         loss = loss_fn(model(st.aug(x)), y)
         loss.backward()
         optimizer.step()
