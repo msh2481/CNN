@@ -61,21 +61,26 @@ p = neptune.init_project(name='mlxa/CNN', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHB
 #        'parameters/perspective_distortion', 'parameters/plot_interval',
 #        'parameters/project_name', 'parameters/register_run', 'parameters/test',
 #        'parameters/train', 'parameters/use_per', 'parameters/val',
-#        'parameters/wd', 'train/val_acc', 'train/val_loss']]
+#        'parameters/wd', 'train/val_acc', 'train/val_loss', 'parameters/tag']]
 # print(a)
-# a.to_csv('sweeps/sweep1.csv')
+# a[(a['train/val_acc']>0.01) & (a['parameters/tag']=='sweep2')].to_csv('sweeps/sweep2.csv')
 
 import pandas as pd
-a = pd.read_csv('sweeps/sweep1.csv')
-treshold = 0.8
-good = a[a['train/val_acc']>=treshold]
-bad =  a[a['train/val_acc']<treshold]
-print(good)
-print(bad)
-for param in a.columns:
-	if 'parameters/' not in param:
-		continue
-	try:
-		print(f'{param}: {good[param].median()} vs {bad[param].median()}')
-	except:
-		continue
+a = pd.read_csv('sweeps/sweep2.csv')
+# treshold = a['train/val_acc'].median()
+# print('treshold', treshold)
+# good = a[a['train/val_acc']>=treshold]
+# bad =  a[a['train/val_acc']<treshold]
+# for param in a.columns:
+# 	x = good[param]
+# 	y = bad[param]
+# 	try:
+# 		if 'parameters/' not in param or x.empty or y.empty:
+# 			continue
+# 		assert x.count() > 0 and y.count() > 0
+# 		if x.median() == y.median():
+# 			continue
+# 		print(f'{param}: {good[param].median()} vs {bad[param].median()}')
+# 	except Exception as e:
+# 		continue
+print(a['train/val_acc'].max())
