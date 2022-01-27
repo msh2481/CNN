@@ -85,15 +85,17 @@ def train_model(trial, model, optimizer, scheduler, config):
             pathx.append(hx)
             pathy.append(hy)
             step = epoch + (batch + 1) / len(st.train_loader)
-            st.run['train/epoch'].log(step, step=step)
-            st.run['train/train_loss'].log(loss, step=step)
-            st.run['train/path'] = File.as_html(px.line(x=pathx, y=pathy))
+            if config['neptune_logging']:
+                st.run['train/epoch'].log(step, step=step)
+                st.run['train/train_loss'].log(loss, step=step)
+                st.run['train/path'] = File.as_html(px.line(x=pathx, y=pathy))
         def test_logging(loss, acc):
             nonlocal min_loss
             step = epoch + 1
-            st.run['train/epoch'].log(step, step=step)
-            st.run['train/val_loss'].log(loss, step=step)
-            st.run['train/val_acc'].log(acc, step=step)
+            if config['neptune_logging']:
+                st.run['train/epoch'].log(step, step=step)
+                st.run['train/val_loss'].log(loss, step=step)
+                st.run['train/val_acc'].log(acc, step=step)
             print(f'step: {step}, loss: {loss}, acc: {acc}, hx: {pathx[-1] if pathx else -1}, hy: {pathy[-1] if pathy else -1}')
             min_loss = min(min_loss, loss)
             trial.report(min_loss, epoch)
@@ -119,10 +121,7 @@ from autoaug import build_transforms
 import neptune.new as neptune
 
 def connect_neptune(project_name, run_token):
-    if config['connect_to_project']:
-        st.project = neptune.init_project(name='mlxa/CNN', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==')
-    else:
-        st.project = Plug()
+    st.project = neptune.init_project(name='mlxa/CNN', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==')
     st.run = neptune.init(project=project_name, api_token=run_token) if run_token else Plug()
     st.run_id = hex(int(time()))[2:]
 
@@ -154,6 +153,4 @@ def run(trial, config):
     st.test_loader = DataLoader(test_set, batch_size=config['batch_size'], shuffle=False) if test_set else None
     result = train_model(trial, model, optimizer, scheduler, config) if train_set else None
     save_to_zoo(model, f'{st.run_id}_final', *test(model, st.val_loader))
-    st.project.stop()
-    st.run.stop()
     return result
