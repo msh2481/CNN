@@ -118,16 +118,17 @@ from plotly import express as px
 from autoaug import build_transforms
 import neptune.new as neptune
 
-def run(trial, config):
-    [print(f'{key}: {value}', flush=True) for key, value in config.items()]
-    st.device = config['device']
+def connect_neptune(project_name, run_token):
     if config['connect_to_project']:
         st.project = neptune.init_project(name='mlxa/CNN', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==')
     else:
         st.project = Plug()
-
-    st.run = neptune.init(project=config['project_name'], api_token=config['api_token']) if config['register_run'] else Plug()
+    st.run = neptune.init(project=project_name, api_token=run_token) if run_token else Plug()
     st.run_id = hex(int(time()))[2:]
+
+def run(trial, config):
+    [print(f'{key}: {value}', flush=True) for key, value in config.items()]
+    st.device = config['device']
     st.run['parameters'] = config
 
     model = build_model(config)

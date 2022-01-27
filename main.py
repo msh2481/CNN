@@ -1,20 +1,21 @@
 # !pip install neptune-client qhoptim
 import torch
-from routines import run
+from routines import run, connect_neptune
 import optuna
 import neptune.new as neptune
 import logging
 import sys
+import neptune.new.integrations.optuna as optuna_utils
+
+connect_neptune('mlxa/CNN', 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==',)
+# connect_neptune('mlxa/CNN', None)
+
+neptune_callback = optuna_utils.NeptuneCallback(st.run)
 
 def objective(trial):
     cutout_min = trial.suggest_int('cutout_min_size', 2, 8, log=True)
     bs = 64
     params = {
-        'project_name': 'mlxa/CNN',
-        'api_token': 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==',
-        'register_run': False,
-        'connect_to_project': True,
-
         'jitter_brightness': 0.01,
         'jitter_contrast': 0.01,
         'jitter_saturation': 0.01,
@@ -53,5 +54,5 @@ def objective(trial):
         return 10
 
 optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
-study = optuna.create_study(pruner=optuna.pruners.HyperbandPruner())
-study.optimize(objective, n_trials=1)
+study = optuna.create_study(direction='minimize', pruner=optuna.pruners.HyperbandPruner())
+study.optimize(objective, n_trials=10, callbacks=[neptune_callback])
