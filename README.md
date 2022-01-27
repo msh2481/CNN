@@ -116,8 +116,8 @@
     'epochs': 10
 
 ## TODO
-https://github.com/dyhan0920/PyramidNet-PyTorch/blob/master/PyramidNet.py
 https://github.com/hiyouga/AMP-Regularizer
+https://github.com/dyhan0920/PyramidNet-PyTorch/blob/master/PyramidNet.py
 Stochastic depth.
 LR finder.
 Другие архитектуры.
