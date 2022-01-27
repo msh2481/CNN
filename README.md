@@ -38,9 +38,39 @@
     'beta2': 0.999,
     'nu1': norm_rnd(0.5, 0.2, 0.1, 0.9),
     'nu2': norm_rnd(1, 0.1, 0.8, 1)
-`
+
+Я запустил примерно 50 итераций, по 2 эпохи каждая. Из них я понял, что M5 работает лучше resnet и M7, как минимум в начале. Немного уточнил диапазон lr, теперь я считаю центром 1e-4. А с остальными параметрами, особенно отвечающими за регуляризацию, было мало что понятно, потому что, во-первых, на первых итерациях регуляризация и не нужна, а во-вторых, 2 эпохи это довольно коротко и в результатах слишком много шума из-за разной иннициализации начальных весов. Ну и чтобы перебирать параметры более эффективно, следующий перебор запускал с Optuna. Часть параметров я просто зафиксировал для простоты и в качестве начальной точки взял лучшую модель с предыдущих итераций (точность 93% на валидации).
+
+    cutout_min = trial.suggest_int('cutout_min_size', 2, 8, log=True)
+    bs = 64
+    params = {
+        'neptune_logging': False,
+
+        'jitter_brightness': 0.01,
+        'jitter_contrast': 0.01,
+        'jitter_saturation': 0.01,
+        'jitter_hue': 0.01,
+        'perspective_distortion': 0.01,
+        'cutout_count': 1,
+        'cutout_min_size': cutout_min,
+        'cutout_max_size': trial.suggest_int('cutout_max_size', cutout_min + 1, 3 * cutout_min, log=True),
+
+        'model': 'load_from_zoo("M5()_61f1af58_final.p")',
+        'batch_size': bs,
+
+        'optimizer': 'QHAdam',
+        'lr': trial.suggest_float('lr', 1e-6, 1e-2, log=True),
+        'wd': trial.suggest_float('wd', 1e-7, 1e-3, log=True),
+        'beta1': 0.9,
+        'beta2': 0.999,
+        'nu1': trial.suggest_float('nu1', 0.1, 0.9),
+        'nu2': 1,
+        'epochs': 5,
+
+        'tag': 'sweep3'
+    }
+
 ## TODO
-Optuna и другие оптимизаторы гиперпараметров.
 LR finder.
 Другие архитектуры.
 Дистилляция чего-нибудь с чем-нибудь.
