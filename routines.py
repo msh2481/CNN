@@ -5,21 +5,6 @@ from stats import complex_hash
 from tqdm import trange, tqdm
 from tianshou.data import Batch, PrioritizedReplayBuffer
 
-def train_epoch(model, dataloader, optimizer, logging=None, interval=None):
-    if dataloader is None:
-        return
-    model.train()
-    loss_fn = nn.NLLLoss()
-    for batch, (x, y) in (enumerate(dataloader)):
-        optimizer.zero_grad()
-        # with torch.autocast(dtype=torch.bfloat16, device_type="cpu"):
-        x, y = x.to(st.device), y.to(st.device, dtype=int)
-        loss = loss_fn(model(st.aug(x)), y)
-        loss.backward()
-        optimizer.step()
-        if logging and (not interval or batch % interval == 0):
-            logging(batch, loss.item(), *complex_hash(model, 2))
-
 def test(model, dataloader, loss_fn=nn.NLLLoss()):
     if dataloader is None:
         return
@@ -52,10 +37,45 @@ def solve_test(model, dataloader, name):
     print('saved', len(predictions), 'predictions to ', name)
     write_solution(f'{name}.csv', predictions)
 
+def train_epoch_without_per(model, dataloader, optimizer, logging, plot_interval):
+    if dataloader is None:
+        return
+    model.train()
+    loss_fn = nn.NLLLoss()
+    for batch, (x, y) in enumerate(dataloader):
+        optimizer.zero_grad()
+        x, y = x.to(st.device), y.to(st.device, dtype=int)
+        loss = loss_fn(model(st.aug(x)), y)
+        loss.backward()
+        optimizer.step()
+        if batch % plot_interval == 0:
+            logging(batch, loss.item(), *complex_hash(model, 2))
+
+def train_epoch_with_per(model, replay_buffer, optimizer, batches_per_epoch, batch_size, logging, plot_interval):
+    if replay_buffer is None:
+        return
+    model.train()
+    loss_fn = nn.NLLLoss(reduction='none')
+    for batch in range(batches_per_epoch):
+        optimizer.zero_grad()
+        ids = replay_buffer.sample_indices(batch_size)
+        d = replay_buffer[ids]
+        x = d.obs.to(st.device)
+        y = torch.tensor(d.act, device=st.device)
+        loss_tensor = loss_fn(model(st.aug(x)), y)
+        replay_buffer.update_weight(ids, loss_tensor)
+        loss = loss_tensor.mean()
+        loss.backward()
+        optimizer.step()
+        if batch % plot_interval == 0:
+            logging(batch, loss.item(), *complex_hash(model, 2))
+
 from neptune.new.types import File
 import plotly.express as px
 from git_utils import save_to_zoo
-def train_model_common(model, optimizer, scheduler, epochs, plot_interval):
+import optuna
+
+def train_model(trial, model, optimizer, scheduler, epochs, plot_interval, use_per):
     global run, train_loader, val_loader, test_loader
     pathx, pathy = [], []
     print(f'started train #{st.run_id}', flush=True)
@@ -73,57 +93,19 @@ def train_model_common(model, optimizer, scheduler, epochs, plot_interval):
             st.run['train/val_loss'].log(loss, step=step)
             st.run['train/val_acc'].log(acc, step=step)
             print(f'step: {step}, loss: {loss}, acc: {acc}, hx: {pathx[-1] if pathx else -1}, hy: {pathy[-1] if pathy else -1}')
+            trial.report(loss, epoch)
+            if trial.should_prune():
+                raise optuna.TrialPruned()
             name = f'{st.run_id}_{epoch}'
             save_to_zoo(model, name, loss, acc)
             solve_test(model, st.test_loader, f'solution_{model.loader}_{name}')
-        train_epoch(model, st.train_loader, optimizer, train_logging, plot_interval)
+        if use_per:
+            train_epoch_with_per(model, st.train_loader, optimizer, batches_per_epoch, batch_size, train_logging, plot_interval)
+        else:
+            train_epoch_without_per(model, st.train_loader, optimizer, train_logging, plot_interval)
         scheduler.step()
         with torch.no_grad():
             test_logging(*test(model, st.val_loader))
-
-def train_batch_with_per(model, replay_buffer, optimizer, batch_size):
-    if replay_buffer is None:
-        return
-    model.train()
-    loss_fn = nn.NLLLoss(reduction='none')
-    optimizer.zero_grad()
-    ids = replay_buffer.sample_indices(batch_size)
-    d = replay_buffer[ids]
-    x = d.obs.to(st.device)
-    y = torch.tensor(d.act, device=st.device)
-    loss = loss_fn(model(st.aug(x)), y)
-    replay_buffer.update_weight(ids, loss)
-    loss.mean().backward()
-    optimizer.step()
-    return loss.mean().item()
-
-def train_model_per(model, optimizer, scheduler, epochs, batches_per_epoch, batch_size, plot_interval):
-    global run, train_loader, val_loader, test_loader
-    pathx, pathy = [], []
-    print(f'started train #{st.run_id}', flush=True)
-    for epoch in trange(epochs):           
-        for batch in range(batches_per_epoch):
-            loss = train_batch_with_per(model, st.train_loader, optimizer, batch_size)
-            if batch % plot_interval == 0:
-                hx, hy = complex_hash(model, 2)
-                pathx.append(hx)
-                pathy.append(hy)
-                step = epoch + (batch + 1) / batches_per_epoch
-                st.run['train/epoch'].log(step, step=step)
-                st.run['train/train_loss'].log(loss, step=step)
-                st.run['train/path'] = File.as_html(px.line(x=pathx, y=pathy))
-        scheduler.step()
-        with torch.no_grad():
-            loss, acc = test(model, st.val_loader)
-            step = epoch + 1
-            st.run['train/epoch'].log(step, step=step)
-            st.run['train/val_loss'].log(loss, step=step)
-            st.run['train/val_acc'].log(acc, step=step)
-            print(f'step: {step}, loss: {loss}, acc: {acc}, hx: {pathx[-1] if pathx else -1}, hy: {pathy[-1] if pathy else -1}')
-            name = f'{st.run_id}_{epoch}'
-            save_to_zoo(model, name, loss, acc)
-            solve_test(model, st.test_loader, f'solution_{model.loader}_{name}')
-
 import neptune.new as neptune
 from data import Plug, build_dataset, build_model, build_optimizer, build_lr_scheduler
 from time import time
@@ -172,51 +154,3 @@ def run(config):
             train_model_common(model, optimizer, scheduler, config['epochs'], config['plot_interval'])
     save_to_zoo(model, f'{st.run_id}_final', *test(model, st.val_loader))
 
-def norm_rnd(loc, scale, l, r):
-    generator = torch.distributions.Normal(loc, scale)
-    a = generator.sample(sample_shape=()).item()
-    assert l < r
-    return max(l, min(r, a))
-
-def uni_rnd(l, r):
-    return l + (r - l) * torch.rand(1).item()
-from random import randint, choice
-
-def gen_config(epochs):
-    cutout_min = norm_rnd(2, 4, 0, 16)
-    bs = 64
-    return {
-        'project_name': 'mlxa/CNN',
-        'api_token': 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==',
-        'register_run': True,
-        'connect_to_project': True,
-
-        'jitter_brightness': 0.01,
-        'jitter_contrast': 0.01,
-        'jitter_saturation': 0.01,
-        'jitter_hue': 0.01,
-        'perspective_distortion': 0.01,
-        'cutout_count': int(norm_rnd(0, 1, 0, 10)),
-        'cutout_min_size': int(cutout_min),
-        'cutout_max_size': int(cutout_min * norm_rnd(2, 0.5, 1, 10)),
-
-        'model': 'M5()',
-        'batch_size': bs,
-        'plot_interval': (4000 + bs - 1) // bs,
-        'train': 'train_v3.bin',
-        'use_per': False,
-        'val': 'val_v3.bin',
-        'test': None,
-        'device': 'cuda' if torch.cuda.is_available() else 'cpu',
-
-        'optimizer': 'QHAdam',
-        'lr': 10**norm_rnd(-4, 1, -6, -1),
-        'wd': 10**norm_rnd(-5, 1, -7, -2),
-        'beta1': 0.9,
-        'beta2': 0.999,
-        'nu1': norm_rnd(0.5, 0.2, 0.1, 0.9),
-        'nu2': 1,
-        'epochs': epochs,
-
-        'tag': 'sweep2'
-    }

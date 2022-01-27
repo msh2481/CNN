@@ -1,40 +1,49 @@
 # !pip install neptune-client qhoptim
 import torch
 from routines import run, gen_config
+import optuna
 
-config = {
-    'project_name': 'mlxa/CNN',
-    'api_token': 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==',
-    'register_run': False,
-    'connect_to_project': False,
 
-    'jitter_brightness': 0.1,
-    'jitter_contrast': 0.1,
-    'jitter_saturation': 0.1,
-    'jitter_hue': 0.1,
-    'perspective_distortion': 0.1,
-    'cutout_count': 1,
-    'cutout_min_size': 8,
-    'cutout_max_size': 16,
 
-    'model': 'Dummy()',
-    'batch_size': 100,
-    'plot_interval': 100,
-    'train': 'train_v3.bin',
-    'use_per': False,
-    'val': 'val_v3.bin',
-    'test': None,
-    'device': 'cuda' if torch.cuda.is_available() else 'cpu',
+def objective(trial):
+    cutout_min = trial.suggest_int('cutout_min_size', 2, 8, log=True)
+    bs = 64
+    return run({
+        'project_name': 'mlxa/CNN',
+        'api_token': 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==',
+        'register_run': True,
+        'connect_to_project': True,
 
-    'optimizer': 'QHAdam',
-    'lr': 0.001,
-    'wd': 1e-6,
-    'dropout': 0.1,
-    'beta1': 0.9,
-    'beta2': 0.999,
-    'nu1': 0.7,
-    'nu2': 1.0,
-    'epochs': 50
-}
+        'jitter_brightness': 0.01,
+        'jitter_contrast': 0.01,
+        'jitter_saturation': 0.01,
+        'jitter_hue': 0.01,
+        'perspective_distortion': 0.01,
+        'cutout_count': 1,
+        'cutout_min_size': cutout_min,
+        'cutout_max_size': trial.suggest_int('cutout_max_size', cutout_min, 3 * cutout_min, log=True),
 
-run(gen_config(5))
+        'model': 'M5()',
+        'batch_size': bs,
+        'plot_interval': (4000 + bs - 1) // bs,
+        'train': 'train_v3.bin',
+        'use_per': False,
+        'val': 'val_v3.bin',
+        'test': None,
+        'device': 'cuda' if torch.cuda.is_available() else 'cpu',
+
+        'optimizer': 'QHAdam',
+        'lr': trial.suggest_float('lr', 1e-6, 1e-2, log=True),
+        'wd': trial.suggest_float('wd', 1e-7, 1e-3, log=True)
+        'beta1': 0.9,
+        'beta2': 0.999,
+        'nu1': trial.suggest_float('nu1', 0.1, 0.9),
+        'nu2': 1,
+        'epochs': 5,
+
+        'tag': 'sweep2'
+    })
+
+optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
+study = optuna.create_study(pruner=optuna.pruners.Hyperband())
+study.optimize(objective, n_trials=20)
