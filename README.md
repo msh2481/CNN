@@ -115,6 +115,8 @@
     'nu2': 1,
     'epochs': 10
 
+Этот перебор оказался довольно хорошим методом обучения в целом, я так довёл M3, M5, M7 и Resnet18 до 94.7% на валидации и больше, потом попробовал пару ансамблей из них, лучший набрал 95.6% на валидации и 94.533% на тесте. На всякий случай сохраню здесь тоже описание этого ансамбля: `MixedEnsemble([load_from_zoo("M3()_61f2a410_8.p"),load_from_zoo("M5()_61f283ce_final.p"),load_from_zoo("M7()_61f29211_0.p"),load_from_zoo("Resnet18(10)_61f2c5e4_8.p"),load_from_zoo("M3()_61f2a13a_8.p"),load_from_zoo("M5()_61f28eab_5.p")], True)`
+
 ## TODO
 https://github.com/hiyouga/AMP-Regularizer
 https://github.com/dyhan0920/PyramidNet-PyTorch/blob/master/PyramidNet.py

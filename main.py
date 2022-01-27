@@ -46,15 +46,15 @@ def objective(trial):
 
         'tag': 'sweep6'
     }
-    # try:
-    return run(trial, params)
-    # except optuna.TrialPruned:
-    #     raise optuna.TrialPruned()
-    # except Exception as e:
-    #     print('Exception', type(e), e)
-    #     p = neptune.init_project(name='mlxa/CNN', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==')
-    #     p['errors'].log({'params': params, 'error': str(e)})
-    #     return 10
+    try:
+        return run(trial, params)
+    except optuna.TrialPruned:
+        raise optuna.TrialPruned()
+    except Exception as e:
+        print('Exception', type(e), e)
+        p = neptune.init_project(name='mlxa/CNN', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==')
+        p['errors'].log({'params': params, 'error': str(e)})
+        return 10
 
 optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
 study = optuna.create_study(direction='minimize', pruner=optuna.pruners.HyperbandPruner())
