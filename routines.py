@@ -40,17 +40,20 @@ def solve_test(model, dataloader, name):
 def train_epoch_without_per(model, dataloader, optimizer, logging, plot_interval):
     if dataloader is None:
         return
+    debug('epoch in')
     model.train()
     loss_fn = nn.NLLLoss()
     for batch, (x, y) in enumerate(dataloader):
         optimizer.zero_grad()
         x, y = x.to(st.device), y.to(st.device, dtype=int)
+        debug('before loss')
         loss = loss_fn(model(st.aug(x)), y)
+        debug('after loss')
         loss.backward()
         optimizer.step()
         if batch % plot_interval == 0:
             logging(batch, loss.item(), *complex_hash(model, 2))
-
+    debug('epoch out')
 def train_epoch_with_per(model, replay_buffer, optimizer, batches_per_epoch, batch_size, logging, plot_interval):
     if replay_buffer is None:
         return
@@ -119,6 +122,9 @@ from plotly import express as px
 from autoaug import build_transforms
 import neptune.new as neptune
 
+def debug(message):
+    print(message, flush=True)
+
 def connect_neptune(project_name, run_token):
     st.project = neptune.init_project(name='mlxa/CNN', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==')
     st.run = neptune.init(project=project_name, api_token=run_token) if run_token else Plug()
@@ -129,7 +135,9 @@ def run(trial, config):
     st.run['parameters'] = config
 
     model = build_model(config)
+    debug('built model')
     optimizer = build_optimizer(model.parameters(), config)
+    debug('built optimizer')
     train_set = build_dataset(config['train'])
     st.aug = build_transforms(config)
     # pics = st.aug(torch.stack([e[0] for e in train_set[:5]]))

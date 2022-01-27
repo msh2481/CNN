@@ -28,7 +28,7 @@ def objective(trial):
         'cutout_min_size': cutout_min,
         'cutout_max_size': cutout_min * 2,
 
-        'model': 'Dummy()',
+        'model': 'load_from_zoo("Resnet18(10)_61eb157c_final.p")',
         'batch_size': bs,
         'plot_interval': (4000 + bs - 1) // bs,
         'train': 'train_v2.bin',
