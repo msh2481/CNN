@@ -1,4 +1,4 @@
-# !pip install neptune-client qhoptim
+# !pip install neptune-client[optuna] qhoptim
 import torch
 from routines import run, connect_neptune
 import optuna
@@ -6,6 +6,7 @@ import neptune.new as neptune
 import logging
 import sys
 import neptune.new.integrations.optuna as optuna_utils
+import static as st
 
 connect_neptune('mlxa/CNN', 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==',)
 # connect_neptune('mlxa/CNN', None)
@@ -16,6 +17,8 @@ def objective(trial):
     cutout_min = trial.suggest_int('cutout_min_size', 2, 8, log=True)
     bs = 64
     params = {
+        'neptune_logging': False,
+
         'jitter_brightness': 0.01,
         'jitter_contrast': 0.01,
         'jitter_saturation': 0.01,
@@ -47,8 +50,10 @@ def objective(trial):
     }
     try:
         return run(trial, params)
+    except optuna.TrialPruned:
+        raise optuna.TrialPruned()
     except Exception as e:
-        print(e)
+        print('Exception', type(e), e)
         p = neptune.init_project(name='mlxa/CNN', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==')
         p['errors'].log({'params': params, 'error': str(e)})
         return 10

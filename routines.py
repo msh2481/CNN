@@ -76,9 +76,9 @@ from git_utils import save_to_zoo
 import optuna
 
 def train_model(trial, model, optimizer, scheduler, config):
-    global run, train_loader, val_loader, test_loader
     pathx, pathy = [], []
     min_loss = 1e9
+    st.run_id = hex(int(time()))[2:]
     print(f'started train #{st.run_id}', flush=True)
     for epoch in trange(config['epochs']):
         def train_logging(batch, loss, hx, hy):
@@ -123,7 +123,6 @@ import neptune.new as neptune
 def connect_neptune(project_name, run_token):
     st.project = neptune.init_project(name='mlxa/CNN', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==')
     st.run = neptune.init(project=project_name, api_token=run_token) if run_token else Plug()
-    st.run_id = hex(int(time()))[2:]
 
 def run(trial, config):
     [print(f'{key}: {value}', flush=True) for key, value in config.items()]
