@@ -150,6 +150,6 @@ def run(trial, config):
     st.val_loader = DataLoader(val_set, batch_size=config['batch_size'], shuffle=False) if val_set else None
     st.test_loader = DataLoader(test_set, batch_size=config['batch_size'], shuffle=False) if test_set else None
     result = train_model(trial, model, optimizer, scheduler, config) if train_set else None
-    save_to_zoo(model, f'{st.run_id}_final', *test(model, st.val_loader))
+    # save_to_zoo(model, f'{st.run_id}_final', *test(model, st.val_loader))
     solve_test(model, st.test_loader, f'solution_{model.loader}_{st.run_id}')
     return result
