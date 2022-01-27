@@ -44,8 +44,6 @@
     cutout_min = trial.suggest_int('cutout_min_size', 2, 8, log=True)
     bs = 64
     params = {
-        'neptune_logging': False,
-
         'jitter_brightness': 0.01,
         'jitter_contrast': 0.01,
         'jitter_saturation': 0.01,
@@ -66,10 +64,42 @@
         'nu1': trial.suggest_float('nu1', 0.1, 0.9),
         'nu2': 1,
         'epochs': 5,
-
-        'tag': 'sweep3'
     }
 
+Здесь наоборот регуляризация (cutout_min_size, в частности) сыграла решающую роль, lr ещё немного уменьшился, для nu1 и wd точного значения снова не получилось найти, зафиксирую пока на 0.6 и 1e-5. Получил модель с ~94% на валидации, теперь попробую дообучать её по 10 эпох, подбирая больше параметров для регуляризации.
+
+    cutout_min = trial.suggest_int('cutout_min_size', 4, 16, log=True)
+    bs = 64
+    params = {
+        'jitter_brightness': trial.suggest_float('jitter_brightness', 0.005, 0.5, log=True),
+        'jitter_contrast': trial.suggest_float('jitter_contrast', 0.005, 0.5, log=True),
+        'jitter_saturation': trial.suggest_float('jitter_saturation', 0.005, 0.5, log=True),
+        'jitter_hue': trial.suggest_float('jitter_hue', 0.005, 0.5, log=True),
+        'perspective_distortion': trial.suggest_float('perspective_distortion', 0.005, 1, log=True),
+        'cutout_count': trial.suggest_int('cutout_count', 1, 4, log=True),
+        'cutout_min_size': cutout_min,
+        'cutout_max_size': cutout_min * 2,
+
+        'model': 'load_from_zoo("M5()_61f26677_final.p")',
+        'batch_size': bs,
+        'plot_interval': (4000 + bs - 1) // bs,
+        'train': 'train_v2.bin',
+        'use_per': False,
+        'val': 'val_v2.bin',
+        'test': None,
+        'device': 'cuda' if torch.cuda.is_available() else 'cpu',
+
+        'optimizer': 'QHAdam',
+        'lr': 5e-5,
+        'wd': 1e-5,
+        'beta1': 0.9,
+        'beta2': 0.999,
+        'nu1': 0.6,
+        'nu2': 1,
+        'epochs': 10,
+
+        'tag': 'sweep4'
+    }
 ## TODO
 LR finder.
 Другие архитектуры.
