@@ -14,19 +14,19 @@ connect_neptune('mlxa/CNN', 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWk
 neptune_callback = optuna_utils.NeptuneCallback(st.run)
 
 def objective(trial):
-    cutout_min = trial.suggest_int('cutout_min_size', 2, 8, log=True)
+    cutout_min = trial.suggest_int('cutout_min_size', 4, 16, log=True)
     bs = 64
     params = {
         'neptune_logging': False,
 
-        'jitter_brightness': 0.01,
-        'jitter_contrast': 0.01,
-        'jitter_saturation': 0.01,
-        'jitter_hue': 0.01,
-        'perspective_distortion': 0.01,
-        'cutout_count': 1,
+        'jitter_brightness': trial.suggest_float('jitter_brightness', 0.005, 0.5, log=True),
+        'jitter_contrast': trial.suggest_float('jitter_contrast', 0.005, 0.5, log=True),
+        'jitter_saturation': trial.suggest_float('jitter_saturation', 0.005, 0.5, log=True),
+        'jitter_hue': trial.suggest_float('jitter_hue', 0.005, 0.5, log=True),
+        'perspective_distortion': trial.suggest_float('perspective_distortion', 0.005, 1, log=True),
+        'cutout_count': trial.suggest_int('cutout_count', 1, 4, log=True),
         'cutout_min_size': cutout_min,
-        'cutout_max_size': trial.suggest_int('cutout_max_size', cutout_min + 1, 3 * cutout_min, log=True),
+        'cutout_max_size': cutout_min * 2,
 
         'model': 'Dummy()',
         'batch_size': bs,
@@ -38,15 +38,15 @@ def objective(trial):
         'device': 'cuda' if torch.cuda.is_available() else 'cpu',
 
         'optimizer': 'QHAdam',
-        'lr': trial.suggest_float('lr', 1e-6, 1e-2, log=True),
-        'wd': trial.suggest_float('wd', 1e-7, 1e-3, log=True),
+        'lr': 5e-5,
+        'wd': 1e-5,
         'beta1': 0.9,
         'beta2': 0.999,
-        'nu1': trial.suggest_float('nu1', 0.1, 0.9),
+        'nu1': 0.6,
         'nu2': 1,
-        'epochs': 5,
+        'epochs': 10,
 
-        'tag': 'sweep3'
+        'tag': 'sweep4'
     }
     try:
         return run(trial, params)
