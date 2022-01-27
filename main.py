@@ -28,7 +28,7 @@ def objective(trial):
         'cutout_min_size': cutout_min,
         'cutout_max_size': cutout_min * 2,
 
-        'model': 'load_from_zoo("Resnet18(10)_61eb157c_final.p")',
+        'model': 'Dummy()',
         'batch_size': bs,
         'plot_interval': (4000 + bs - 1) // bs,
         'train': 'train_v2.bin',
@@ -37,26 +37,24 @@ def objective(trial):
         'test': None,
         'device': 'cuda' if torch.cuda.is_available() else 'cpu',
 
-        'optimizer': 'QHAdam',
-        'lr': 5e-5,
-        'wd': 1e-5,
-        'beta1': 0.9,
-        'beta2': 0.999,
-        'nu1': 0.6,
-        'nu2': 1,
+        'optimizer': 'AMP(SGD)',
+        'lr': trial.suggest_float('lr', 1e-6, 1e-2, log=True),
+        'amp_lr': trial.suggest_float('amp_lr', 0.1, 10, log=True),
+        'amp_eps': trial.suggest_float('amp_eps', 0.01, 1, log=True),
+        'amp_iter': trial.suggest_int('amp_iter', 1, 3, log=True),
         'epochs': 10,
 
-        'tag': 'sweep4'
+        'tag': 'sweep6'
     }
-    try:
-        return run(trial, params)
-    except optuna.TrialPruned:
-        raise optuna.TrialPruned()
-    except Exception as e:
-        print('Exception', type(e), e)
-        p = neptune.init_project(name='mlxa/CNN', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==')
-        p['errors'].log({'params': params, 'error': str(e)})
-        return 10
+    # try:
+    return run(trial, params)
+    # except optuna.TrialPruned:
+    #     raise optuna.TrialPruned()
+    # except Exception as e:
+    #     print('Exception', type(e), e)
+    #     p = neptune.init_project(name='mlxa/CNN', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==')
+    #     p['errors'].log({'params': params, 'error': str(e)})
+    #     return 10
 
 optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
 study = optuna.create_study(direction='minimize', pruner=optuna.pruners.HyperbandPruner())

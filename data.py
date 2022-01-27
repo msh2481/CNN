@@ -38,6 +38,7 @@ def build_model(config):
     return model.to(config['device'])
 
 from qhoptim.pyt import QHAdam
+from extra import AMP
 def build_optimizer(params, config):
     tp = config['optimizer']
     if tp == 'SGD':
@@ -46,6 +47,8 @@ def build_optimizer(params, config):
         return torch.optim.Adam(params, lr=config['lr'], betas=(config['beta1'], config['beta2']), weight_decay=config['wd'])
     elif tp == 'QHAdam':
         return QHAdam(params, lr=config['lr'], betas=(config['beta1'], config['beta2']), nus=(config['nu1'], config['nu2']), weight_decay=config['wd'])
+    elif tp == 'AMP(SGD)':
+        return AMP(params, lr=config['lr'], epsilon=config['amp_eps'], inner_lr=config['amp_lr'], inner_iter=config['amp_iter'])
     else:
         assert False, 'Unknown optimizer'
 

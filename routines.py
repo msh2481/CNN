@@ -43,11 +43,15 @@ def train_epoch_without_per(model, dataloader, optimizer, logging, plot_interval
     model.train()
     loss_fn = nn.NLLLoss()
     for batch, (x, y) in enumerate(dataloader):
-        optimizer.zero_grad()
-        x, y = x.to(st.device), y.to(st.device, dtype=int)
-        loss = loss_fn(model(st.aug(x)), y)
-        loss.backward()
-        optimizer.step()
+        def closure():
+            nonlocal x, y
+            optimizer.zero_grad()
+            x, y = x.to(st.device), y.to(st.device, dtype=int)
+            outputs = model(st.aug(x))
+            loss = loss_fn(outputs, y)
+            loss.backward()
+            return outputs, loss
+        outputs, loss = optimizer.step(closure)
         if batch % plot_interval == 0:
             logging(batch, loss.item(), *complex_hash(model, 2))
 def train_epoch_with_per(model, replay_buffer, optimizer, batches_per_epoch, batch_size, logging, plot_interval):
@@ -56,16 +60,19 @@ def train_epoch_with_per(model, replay_buffer, optimizer, batches_per_epoch, bat
     model.train()
     loss_fn = nn.NLLLoss(reduction='none')
     for batch in range(batches_per_epoch):
-        optimizer.zero_grad()
-        ids = replay_buffer.sample_indices(batch_size)
-        d = replay_buffer[ids]
-        x = d.obs.to(st.device)
-        y = torch.tensor(d.act, device=st.device)
-        loss_tensor = loss_fn(model(st.aug(x)), y)
-        replay_buffer.update_weight(ids, loss_tensor)
-        loss = loss_tensor.mean()
-        loss.backward()
-        optimizer.step()
+        def closure():
+            optimizer.zero_grad()
+            ids = replay_buffer.sample_indices(batch_size)
+            d = replay_buffer[ids]
+            x = d.obs.to(st.device)
+            y = torch.tensor(d.act, device=st.device)
+            outputs = model(st.aug(x))
+            loss_tensor = loss_fn(outputs, y)
+            replay_buffer.update_weight(ids, loss_tensor)
+            loss = loss_tensor.mean()
+            loss.backward()
+            return outputs, loss
+        outputs, loss = optimizer.step(closure)
         if batch % plot_interval == 0:
             logging(batch, loss.item(), *complex_hash(model, 2))
 
