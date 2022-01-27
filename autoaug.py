@@ -19,7 +19,7 @@ class Cutout(nn.Module):
 			si = torch.randint(high=tensor.shape[2]-sz, size=tuple())
 			sj = torch.randint(high=tensor.shape[3]-sz, size=tuple())
 			cutted[:, :, si:si+sz, sj:sj+sz] = mean
-		return cutted
+		return cutted.clone()
 
 def build_transforms(config):
 	transforms = [
