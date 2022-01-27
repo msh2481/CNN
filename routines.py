@@ -75,11 +75,12 @@ import plotly.express as px
 from git_utils import save_to_zoo
 import optuna
 
-def train_model(trial, model, optimizer, scheduler, epochs, plot_interval, use_per):
+def train_model(trial, model, optimizer, scheduler, config):
     global run, train_loader, val_loader, test_loader
     pathx, pathy = [], []
+    min_loss = 1e9
     print(f'started train #{st.run_id}', flush=True)
-    for epoch in trange(epochs):
+    for epoch in trange(config['epochs']):
         def train_logging(batch, loss, hx, hy):
             pathx.append(hx)
             pathy.append(hy)
@@ -88,32 +89,36 @@ def train_model(trial, model, optimizer, scheduler, epochs, plot_interval, use_p
             st.run['train/train_loss'].log(loss, step=step)
             st.run['train/path'] = File.as_html(px.line(x=pathx, y=pathy))
         def test_logging(loss, acc):
+            nonlocal min_loss
             step = epoch + 1
             st.run['train/epoch'].log(step, step=step)
             st.run['train/val_loss'].log(loss, step=step)
             st.run['train/val_acc'].log(acc, step=step)
             print(f'step: {step}, loss: {loss}, acc: {acc}, hx: {pathx[-1] if pathx else -1}, hy: {pathy[-1] if pathy else -1}')
-            trial.report(loss, epoch)
+            min_loss = min(min_loss, loss)
+            trial.report(min_loss, epoch)
             if trial.should_prune():
                 raise optuna.TrialPruned()
             name = f'{st.run_id}_{epoch}'
             save_to_zoo(model, name, loss, acc)
             solve_test(model, st.test_loader, f'solution_{model.loader}_{name}')
-        if use_per:
-            train_epoch_with_per(model, st.train_loader, optimizer, batches_per_epoch, batch_size, train_logging, plot_interval)
+        if config['use_per']:
+            train_epoch_with_per(model, st.train_loader, optimizer, len(train_loader) // config['batch_size'], config['batch_size'], train_logging, config['plot_interval'])
         else:
-            train_epoch_without_per(model, st.train_loader, optimizer, train_logging, plot_interval)
+            train_epoch_without_per(model, st.train_loader, optimizer, train_logging, config['plot_interval'])
         scheduler.step()
         with torch.no_grad():
             test_logging(*test(model, st.val_loader))
-import neptune.new as neptune
+    return min_loss
+
 from data import Plug, build_dataset, build_model, build_optimizer, build_lr_scheduler
 from time import time
 from torch.utils.data import DataLoader
 from plotly import express as px
 from autoaug import build_transforms
+import neptune.new as neptune
 
-def run(config):
+def run(trial, config):
     [print(f'{key}: {value}', flush=True) for key, value in config.items()]
     st.device = config['device']
     if config['connect_to_project']:
@@ -133,7 +138,6 @@ def run(config):
     # for pic in pics:
     #     pic = pic.clip(0, 1)
     #     px.imshow(pic.permute(1, 2, 0)).show()
-
     if config['use_per']:
         if train_set:
             st.train_loader = PrioritizedReplayBuffer(size=len(train_set), alpha=config['per_alpha'], beta=config['per_beta'])
@@ -147,10 +151,8 @@ def run(config):
     val_set, test_set = build_dataset(config['val']), build_dataset(config['test'])
     st.val_loader = DataLoader(val_set, batch_size=config['batch_size'], shuffle=False) if val_set else None
     st.test_loader = DataLoader(test_set, batch_size=config['batch_size'], shuffle=False) if test_set else None
-    if train_set:
-        if config['use_per']:
-            train_model_per(model, optimizer, scheduler, config['epochs'], len(train_set) // config['batch_size'], config['batch_size'], config['plot_interval'])
-        else:
-            train_model_common(model, optimizer, scheduler, config['epochs'], config['plot_interval'])
+    result = train_model(trial, model, optimizer, scheduler, config) if train_set else None
     save_to_zoo(model, f'{st.run_id}_final', *test(model, st.val_loader))
-
+    st.project.stop()
+    st.run.stop()
+    return result

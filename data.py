@@ -13,6 +13,8 @@ class Plug:
         return self.d[s] if s in self.d else Plug()
     def __setitem__(self, s, v):
         self.d[s] = v
+    def stop(self):
+        pass
 
 def build_dataset(name):
     import pickle
