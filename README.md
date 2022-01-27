@@ -94,7 +94,31 @@
         'epochs': 10
     }
 
+Точность на валидации заметно повысить не получилось, но зато подобрал какие-то значения для всех аугментаций, теперь зафиксировав их опять поперебираю wd, lr, nu1 по 10 эпох.
+
+    'jitter_brightness': 0.03,
+    'jitter_contrast': 0.05,
+    'jitter_saturation': 0.27,
+    'jitter_hue': 0.03,
+    'perspective_distortion': 0.12,
+    'cutout_count': 2,
+    'cutout_min_size': 6,
+    'cutout_max_size': 12,
+    'model': 'load_from_zoo("M5()_61f271e4_final.p")',
+    'batch_size': 64,
+    'optimizer': 'QHAdam',
+    'lr': trial.suggest_float('lr', 1e-6, 1e-3, log=True),
+    'wd': trial.suggest_float('wd', 1e-6, 1e-4, log=True),
+    'beta1': 0.9,
+    'beta2': 0.999,
+    'nu1': trial.suggest_float('nu1', 0.4, 0.8),
+    'nu2': 1,
+    'epochs': 10
+
 ## TODO
+https://github.com/dyhan0920/PyramidNet-PyTorch/blob/master/PyramidNet.py
+https://github.com/hiyouga/AMP-Regularizer
+Stochastic depth.
 LR finder.
 Другие архитектуры.
 Дистилляция чего-нибудь с чем-нибудь.
