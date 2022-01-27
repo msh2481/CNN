@@ -2,13 +2,13 @@
 import torch
 from routines import run, gen_config
 import optuna
-
+import neptune.new as neptune
 
 
 def objective(trial):
     cutout_min = trial.suggest_int('cutout_min_size', 2, 8, log=True)
     bs = 64
-    return run({
+    params = {
         'project_name': 'mlxa/CNN',
         'api_token': 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==',
         'register_run': True,
@@ -42,7 +42,13 @@ def objective(trial):
         'epochs': 5,
 
         'tag': 'sweep2'
-    })
+    }
+    try:
+        return run(params)
+    except:
+        p = neptune.init_project(name='mlxa/CNN', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI5NTIzY2UxZC1jMjI5LTRlYTQtYjQ0Yi1kM2JhMGU1NDllYTIifQ==')
+        p['errors'].log(params)
+        return 10
 
 optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
 study = optuna.create_study(pruner=optuna.pruners.Hyperband())
