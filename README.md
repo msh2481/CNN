@@ -16,9 +16,9 @@
 По-новой сгладил данные, на этот раз получилось лучше, шума совсем не видно.
 Наконец сделал нормальный перебор гиперпараметров, для начала просто случайный поиск, распределения такие (`norm_rnd(mean, std, clip_min, clip_max)`):
 
+
     cutout_min = norm_rnd(4, 4, 0, 16)
     bs = 2**randint(5, 10)
-
     'jitter_brightness': norm_rnd(0, 0.1, 0, 0.5),
     'jitter_contrast': norm_rnd(0, 0.1, 0, 0.5),
     'jitter_saturation': norm_rnd(0, 0.1, 0, 0.5),
@@ -27,10 +27,8 @@
     'cutout_count': int(norm_rnd(0, 1, 0, 10)),
     'cutout_min_size': int(cutout_min),
     'cutout_max_size': int(cutout_min * norm_rnd(2, 0.5, 1, 10)),
-
     'model': choice(['M5()', 'M7()', 'Resnet18(10)']),
     'batch_size': bs,
-
     'optimizer': 'QHAdam',
     'lr': 10**norm_rnd(-3, 1, -6, -1),
     'wd': 10**norm_rnd(-4, 1, -7, -2),
@@ -52,10 +50,8 @@
         'cutout_count': 1,
         'cutout_min_size': cutout_min,
         'cutout_max_size': trial.suggest_int('cutout_max_size', cutout_min + 1, 3 * cutout_min, log=True),
-
         'model': 'load_from_zoo("M5()_61f1af58_final.p")',
         'batch_size': bs,
-
         'optimizer': 'QHAdam',
         'lr': trial.suggest_float('lr', 1e-6, 1e-2, log=True),
         'wd': trial.suggest_float('wd', 1e-7, 1e-3, log=True),
@@ -66,7 +62,8 @@
         'epochs': 5,
     }
 
-Здесь наоборот регуляризация (cutout_min_size, в частности) сыграла решающую роль, lr ещё немного уменьшился, для nu1 и wd точного значения снова не получилось найти, зафиксирую пока на 0.6 и 1e-5. Получил модель с ~94% на валидации, теперь попробую дообучать её по 10 эпох, подбирая больше параметров для регуляризации.
+Здесь наоборот регуляризация (cutout_min_size, в частности) сыграла решающую роль, lr ещё немного уменьшился, для nu1 и wd точного значения снова не получилось найти, зафиксирую пока на 0.6 и 1e-5. Получил модель с ~94% на валидации, теперь попробую дообучать её по 10 эпох, подбирая больше параметров для регуляризации. Параллельно собрал ансамбль из нескольких предыдущих моделей с 93-94%, получилось 95% на валидации и 94.1% на открытых тестах.
+
 
     cutout_min = trial.suggest_int('cutout_min_size', 4, 16, log=True)
     bs = 64
@@ -79,7 +76,6 @@
         'cutout_count': trial.suggest_int('cutout_count', 1, 4, log=True),
         'cutout_min_size': cutout_min,
         'cutout_max_size': cutout_min * 2,
-
         'model': 'load_from_zoo("M5()_61f26677_final.p")',
         'batch_size': bs,
         'plot_interval': (4000 + bs - 1) // bs,
@@ -88,7 +84,6 @@
         'val': 'val_v2.bin',
         'test': None,
         'device': 'cuda' if torch.cuda.is_available() else 'cpu',
-
         'optimizer': 'QHAdam',
         'lr': 5e-5,
         'wd': 1e-5,
@@ -96,10 +91,9 @@
         'beta2': 0.999,
         'nu1': 0.6,
         'nu2': 1,
-        'epochs': 10,
-
-        'tag': 'sweep4'
+        'epochs': 10
     }
+
 ## TODO
 LR finder.
 Другие архитектуры.
