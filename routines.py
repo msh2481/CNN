@@ -87,7 +87,10 @@ def train_model(trial, model, optimizer, scheduler, config):
         def train_logging(batch, loss, acc, hx, hy):
             pathx.append(hx)
             pathy.append(hy)
-            step = epoch + (batch + 1) / len(st.train_loader)
+            if config['use_per']:
+                step = epoch + (batch + 1) / (len(st.train_loader) // config['batch_size'])
+            else:
+                step = epoch + (batch + 1) / len(st.train_loader)
             if config['neptune_logging']:
                 st.run['train/epoch'].log(step, step=step)
                 st.run['train/train_loss'].log(loss, step=step)
