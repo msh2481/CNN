@@ -111,7 +111,7 @@ def train_model(trial, model, optimizer, scheduler, config):
             config['batch_size'],
             config['per_alpha'],
             config['per_beta'],
-            torch.normal(mean=val_loss, std=val_loss/3, size=(1,)).item(),
+            torch.normal(mean=config['flood_mean'], std=config['flood_std'], size=(1,)).item(),
             train_logging,
             config['plot_interval'])
         scheduler.step()
