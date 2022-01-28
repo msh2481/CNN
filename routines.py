@@ -42,14 +42,18 @@ def train_epoch_without_per(model, dataloader, optimizer, logging, plot_interval
         return
     model.train()
     loss_fn = nn.NLLLoss()
+    acc = 0
     for batch, (x, y) in enumerate(dataloader):
         optimizer.zero_grad()
         x, y = x.to(st.device), y.to(st.device, dtype=int)
-        loss = loss_fn(model(st.aug(x)), y)
+        outputs = model(st.aug(x))
+        acc += (outputs.argmax(dim=-1) == y).float().mean().item()
+        loss = loss_fn(outputs, y)
         loss.backward()
         optimizer.step()
         if batch % plot_interval == 0:
-            logging(batch, loss.item(), *complex_hash(model, 2))
+            logging(batch, loss.item(), acc / plot_interval, *complex_hash(model, 2))
+            acc = 0
 def train_epoch_with_per(model, replay_buffer, optimizer, batches_per_epoch, batch_size, logging, plot_interval):
     if replay_buffer is None:
         return
@@ -67,7 +71,7 @@ def train_epoch_with_per(model, replay_buffer, optimizer, batches_per_epoch, bat
         loss.backward()
         optimizer.step()
         if batch % plot_interval == 0:
-            logging(batch, loss.item(), *complex_hash(model, 2))
+            logging(batch, loss.item(), -1, *complex_hash(model, 2))
 
 from neptune.new.types import File
 import plotly.express as px
@@ -80,7 +84,7 @@ def train_model(trial, model, optimizer, scheduler, config):
     st.run_id = hex(int(time()))[2:]
     print(f'started train #{st.run_id}', flush=True)
     for epoch in trange(config['epochs']):
-        def train_logging(batch, loss, hx, hy):
+        def train_logging(batch, loss, acc, hx, hy):
             pathx.append(hx)
             pathy.append(hy)
             step = epoch + (batch + 1) / len(st.train_loader)
