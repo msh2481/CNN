@@ -4,8 +4,7 @@ import torch
 import torch.nn as nn
 from stats import complex_hash
 from tqdm import trange, tqdm
-from tianshou.data import Batch, PrioritizedReplayBuffer
-from torch import functional as F
+from torch.nn import functional as F
 
 def test(model, dataset):
     if dataset is None:
@@ -45,14 +44,14 @@ def train_epoch(model, dataset, optimizer, n_batches, batch_size, alpha, beta, l
         batch_indices = torch.multinomial(probs, n_batches*batch_size, replacement=True).view(n_batches, batch_size)
         importance_sampling_weights = 1/(probs[batch_indices]*len(data))
         importance_sampling_weights /= importance_sampling_weights.sum(dim=1, keepdim=True)
-        importance_sampling_weights = importance_sampling_weights.to(device)
+        importance_sampling_weights = importance_sampling_weights.to(st.device)
     acc = 0
     for batch_idx in range(n_batches):
         x = data[batch_indices[batch_idx]]
-        y = data[batch_indices[batch_idx]]
+        y = targets[batch_indices[batch_idx]]
         optimizer.zero_grad()
-        outputs = model(st.aug(data))
-        loss = F.nll_loss(output, target, importance_sampling_weights[batch_idx].view(-1, 1).repeat(1, 10))
+        outputs = model(st.aug(x))
+        loss = (F.nll_loss(outputs, y, reduction='none') * importance_sampling_weights[batch_idx]).mean()
         acc += (outputs.argmax(dim=-1) == y).float().mean().item()
         loss.backward()
         optimizer.step()
@@ -95,12 +94,11 @@ def train_model(trial, model, optimizer, scheduler, config):
                     raise optuna.TrialPruned()
             name = f'{st.run_id}_{epoch}'
             save_to_zoo(model, name, loss, acc)
-
         train_epoch(
             model,
             st.train_set,
             optimizer,
-            config['k_epoch'] * len(st.train_set) // config['batch_size'] + 1,
+            config['k_epoch'] * len(st.train_set[0]) // config['batch_size'] + 1,
             config['batch_size'],
             config['per_alpha'],
             config['per_beta'],
@@ -135,9 +133,9 @@ def run(trial, config):
     #     pic = pic.clip(0, 1)
     #     px.imshow(pic.permute(1, 2, 0)).show()
     scheduler = build_lr_scheduler(optimizer, config)
-    st.val_set  = build_dataset(config['val']), 
+    st.val_set  = build_dataset(config['val'])
     st.test_set = build_dataset(config['test'])
-    result = train_model(trial, model, optimizer, scheduler, config) if train_set else None
+    result = train_model(trial, model, optimizer, scheduler, config) if st.train_set else None
     # save_to_zoo(model, f'{st.run_id}_final', *test(model, st.val_set))
     solve_test(model, st.test_set, f'solution_{model.loader}_{st.run_id}')
     return result

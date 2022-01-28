@@ -29,7 +29,7 @@ def build_dataset(name):
         print("torch.load() didn't work, trying pickle")
         with open(name, 'rb') as f:
             data = pickle.load(f)
-    return torch.tensor([e[0] for e in data]), torch.tensor([e[1] for e in data], dtype=int)
+    return torch.stack([e[0] for e in data]), torch.tensor([int(e[1]) for e in data])
 
 from models import *
 from git_utils import load_from_zoo
