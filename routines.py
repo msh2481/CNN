@@ -45,7 +45,6 @@ def train_epoch(model, dataset, optimizer, n_batches, batch_size, alpha, beta, f
     with torch.no_grad():
         outputs = get_output(model, data)
         loss = F.nll_loss(outputs, targets, reduction='none')
-        loss = (loss - flood_level).abs() + flood_level
         assert loss.shape == (len(data), )
         probs = F.softmax(loss * alpha, dim=-1)
         batch_indices = torch.multinomial(probs, n_batches*batch_size, replacement=True).view(n_batches, batch_size)
@@ -60,6 +59,7 @@ def train_epoch(model, dataset, optimizer, n_batches, batch_size, alpha, beta, f
         outputs = model(st.aug(x))
         raw_loss = F.nll_loss(outputs, y, reduction='none')
         loss = (raw_loss * importance_sampling_weights[batch_idx]).mean()
+        loss = (loss - flood_level).abs() + flood_level
         acc += (outputs.argmax(dim=-1) == y).float().mean().item()
         loss.backward()
         optimizer.step()
@@ -77,7 +77,7 @@ def train_model(trial, model, optimizer, scheduler, config):
     min_loss = 1e9
     st.run_id = hex(int(time()))[2:]
     print(f'started train #{st.run_id}', flush=True)
-    val_loss, val_acc = 0, 0
+    val_loss, val_acc = 0.0, 0.0
     for epoch in trange(config['epochs']):
         def train_logging(batch_pos, loss, acc, hx, hy):
             pathx.append(hx)
@@ -111,7 +111,7 @@ def train_model(trial, model, optimizer, scheduler, config):
             config['batch_size'],
             config['per_alpha'],
             config['per_beta'],
-            torch.norm(mean=val_loss, std=val_loss/3).item(),
+            torch.normal(mean=val_loss, std=val_loss/3, size=(1,)).item(),
             train_logging,
             config['plot_interval'])
         scheduler.step()
