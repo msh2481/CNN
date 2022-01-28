@@ -28,6 +28,10 @@ Train aimed:
 M3()_61f3b324_106.p, train_acc: 0.998 train_loss: 0.015 acc: 0.9458237886428833, loss: 0.22433879971504211
 M3()_61f3a813_161.p, train_acc: 0.997 train_loss: 0.022 acc: 0.9473892450332642, loss: 0.210969015955925
 
+SGD and PER from scratch:
+M3()_61f41150_29.p, train_acc: 0.95 acc: 0.9240999817848206, loss: 0.31238868832588196
+M3()_61f4097b_102.p, train_acc: 0.945 acc: 0.9172000288963318, loss: 0.3442517817020416
+
 Ensembles:
 MixedEnsemble()_61eb190e_final.p, acc: 0.9455000162124634, loss: 0.18904252350330353
 (MixedEnsemble([load_from_zoo("M7()_61eadb09_6.p"),load_from_zoo("Resnet18(10)_61eb157c_final.p"),load_from_zoo("Resnet18(10)_61eb153a_final.p"),load_from_zoo("Resnet18(10)_61eb15c8_final.p"),load_from_zoo("Densenet161(10)_61eb0f67_9.p")], True)

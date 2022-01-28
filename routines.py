@@ -40,11 +40,12 @@ def solve_test(model, dataset, name):
     write_solution(f'{name}.csv', predictions)
 
 import torch.distributions as dist
-def train_epoch(model, dataset, optimizer, n_batches, batch_size, alpha, beta, logging, plot_interval):
+def train_epoch(model, dataset, optimizer, n_batches, batch_size, alpha, beta, flood_level, logging, plot_interval):
     data, targets = dataset
     with torch.no_grad():
         outputs = get_output(model, data)
         loss = F.nll_loss(outputs, targets, reduction='none')
+        loss = (loss - flood_level).abs() + flood_level
         assert loss.shape == (len(data), )
         probs = F.softmax(loss * alpha, dim=-1)
         batch_indices = torch.multinomial(probs, n_batches*batch_size, replacement=True).view(n_batches, batch_size)
@@ -76,6 +77,7 @@ def train_model(trial, model, optimizer, scheduler, config):
     min_loss = 1e9
     st.run_id = hex(int(time()))[2:]
     print(f'started train #{st.run_id}', flush=True)
+    val_loss, val_acc = 0, 0
     for epoch in trange(config['epochs']):
         def train_logging(batch_pos, loss, acc, hx, hy):
             pathx.append(hx)
@@ -109,11 +111,13 @@ def train_model(trial, model, optimizer, scheduler, config):
             config['batch_size'],
             config['per_alpha'],
             config['per_beta'],
+            torch.norm(mean=val_loss, std=val_loss/3).item(),
             train_logging,
             config['plot_interval'])
         scheduler.step()
         with torch.no_grad():
-            test_logging(*test(model, st.val_set))
+            val_loss, val_acc = test(model, st.val_set)
+            test_logging(val_loss, val_acc)
     return min_loss
 
 from data import Plug, build_dataset, build_model, build_optimizer, build_lr_scheduler
