@@ -91,6 +91,7 @@ def train_model(trial, model, optimizer, scheduler, config):
             if config['neptune_logging']:
                 st.run['train/epoch'].log(step, step=step)
                 st.run['train/train_loss'].log(loss, step=step)
+                st.run['train/train_acc'].log(acc, step=step)
                 st.run['train/path'] = File.as_html(px.line(x=pathx, y=pathy))
         def test_logging(loss, acc):
             nonlocal min_loss

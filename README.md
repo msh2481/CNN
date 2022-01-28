@@ -119,6 +119,7 @@
 https://github.com/hiyouga/AMP-Regularizer
 https://github.com/dyhan0920/PyramidNet-PyTorch/blob/master/PyramidNet.py
 Stochastic depth.
+Dilation.
 LR finder.
 Другие архитектуры.
 Дистилляция чего-нибудь с чем-нибудь.
