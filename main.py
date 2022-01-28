@@ -46,7 +46,7 @@ def objective(trial):
         'gamma': 0.999,
         'epochs': 500,
 
-        'tag': 'underfit1'
+        'tag': 'underfit2'
     }
     try:
         return run(trial, params)

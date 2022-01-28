@@ -144,7 +144,7 @@ def run(trial, config):
         if train_set:
             st.train_loader = PrioritizedReplayBuffer(size=len(train_set), alpha=config['per_alpha'], beta=config['per_beta'])
             for x, y in train_set:
-                st.train_loader.add(Batch(obs=x, act=y, rew=0, done=False))
+                st.train_loader.add(Batch(obs=x, act=y, rew=0, done=False, weight=1e6))
         else:
             st.train_loader = None
     else:
