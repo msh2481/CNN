@@ -51,7 +51,7 @@ def train_epoch_without_per(model, dataloader, optimizer, logging, plot_interval
         loss = loss_fn(outputs, y)
         loss.backward()
         optimizer.step()
-        if batch % plot_interval == 0:
+        if batch % plot_interval == plot_interval - 1:
             logging(batch, loss.item(), acc / plot_interval, *complex_hash(model, 2))
             acc = 0
 def train_epoch_with_per(model, replay_buffer, optimizer, batches_per_epoch, batch_size, logging, plot_interval):
@@ -70,7 +70,7 @@ def train_epoch_with_per(model, replay_buffer, optimizer, batches_per_epoch, bat
         loss = loss_tensor.mean()
         loss.backward()
         optimizer.step()
-        if batch % plot_interval == 0:
+        if batch % plot_interval == plot_interval - 1:
             logging(batch, loss.item(), -1, *complex_hash(model, 2))
 
 from neptune.new.types import File
