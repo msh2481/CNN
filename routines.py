@@ -62,7 +62,7 @@ def train_epoch(model, dataset, optimizer, n_batches, batch_size, alpha, beta, l
         loss.backward()
         optimizer.step()
         if batch_idx % plot_interval == plot_interval - 1:
-            logging((batch_idx + 1) / n_batches, loss.item(), acc, *complex_hash(model, 2))
+            logging((batch_idx + 1) / n_batches, loss.item(), acc / plot_interval, *complex_hash(model, 2))
             acc = 0
 
 from neptune.new.types import File
