@@ -1,22 +1,22 @@
 import static as st
 
+import torch
 import torch.nn as nn
 from stats import complex_hash
 from tqdm import trange, tqdm
 from tianshou.data import Batch, PrioritizedReplayBuffer
+from torch import functional as F
 
-def test(model, dataloader, loss_fn=nn.NLLLoss()):
-    if dataloader is None:
+def test(model, dataset):
+    if dataset is None:
         return
     model.eval()
-    num_batches = len(dataloader)
-    test_loss, correct = 0, 0
-    for x, y in dataloader:
-        x, y = x.to(st.device), y.to(st.device, dtype=int)
-        pred = model(x)
-        test_loss = test_loss + loss_fn(pred, y)
-        correct += (pred.argmax(dim=-1) == y).to(torch.float).mean()
-    return (test_loss / num_batches).item(), (correct / num_batches).item()
+    x, y = dataset
+    x, y = x.to(st.device), y.to(st.device) 
+    p = model(x)
+    loss = F.nll_loss(p, y)
+    acc = (p.argmax(dim=-1) == y).float().mean()
+    return loss.item(), acc.item()
 
 def write_solution(filename, labels):
     with open(filename, 'w') as solution:
@@ -24,54 +24,41 @@ def write_solution(filename, labels):
         for i, label in enumerate(labels):
             print(f'{i},{label}', file=solution)
 
-import torch
-def solve_test(model, dataloader, name):
-    if dataloader is None:
+def solve_test(model, dataset, name):
+    if dataset is None:
         return
     model.eval()
-    predictions = []
     with torch.no_grad():
-        for x, _ in dataloader:
-            pred = model(x.to(st.device))
-            predictions.extend(list(pred.argmax(dim=-1).cpu().numpy()))
+        predictions = model(dataset).cpu().numpy()
     print('saved', len(predictions), 'predictions to ', name)
     write_solution(f'{name}.csv', predictions)
 
-def train_epoch_without_per(model, dataloader, optimizer, logging, plot_interval):
-    if dataloader is None:
-        return
-    model.train()
-    loss_fn = nn.NLLLoss()
+import torch.distributions as dist
+def train_epoch(model, dataset, optimizer, n_batches, batch_size, alpha, beta, logging, plot_interval):
+    data, targets = dataset
+    data, targets = data.to(st.device), targets.to(st.device)
+    with torch.no_grad():
+        outputs = model(data)
+        loss = F.nll_loss(outputs, targets, reduction='none')
+        assert loss.shape == (len(data), )
+        probs = F.softmax(loss * alpha, dim=-1)
+        batch_indices = torch.multinomial(probs, n_batches*batch_size, replacement=True).view(n_batches, batch_size)
+        importance_sampling_weights = 1/(probs[batch_indices]*len(data))
+        importance_sampling_weights /= importance_sampling_weights.sum(dim=1, keepdim=True)
+        importance_sampling_weights = importance_sampling_weights.to(device)
     acc = 0
-    for batch, (x, y) in enumerate(dataloader):
+    for batch_idx in range(n_batches):
+        x = data[batch_indices[batch_idx]]
+        y = data[batch_indices[batch_idx]]
         optimizer.zero_grad()
-        x, y = x.to(st.device), y.to(st.device, dtype=int)
-        outputs = model(st.aug(x))
+        outputs = model(st.aug(data))
+        loss = F.nll_loss(output, target, importance_sampling_weights[batch_idx].view(-1, 1).repeat(1, 10))
         acc += (outputs.argmax(dim=-1) == y).float().mean().item()
-        loss = loss_fn(outputs, y)
         loss.backward()
         optimizer.step()
-        if batch % plot_interval == plot_interval - 1:
-            logging(batch, loss.item(), acc / plot_interval, *complex_hash(model, 2))
+        if batch_idx % plot_interval == plot_interval - 1:
+            logging((batch_idx + 1) / n_batches, loss.item(), acc, *complex_hash(model, 2))
             acc = 0
-def train_epoch_with_per(model, replay_buffer, optimizer, batches_per_epoch, batch_size, logging, plot_interval):
-    if replay_buffer is None:
-        return
-    model.train()
-    loss_fn = nn.NLLLoss(reduction='none')
-    for batch in range(batches_per_epoch):
-        optimizer.zero_grad()
-        ids = replay_buffer.sample_indices(batch_size)
-        d = replay_buffer[ids]
-        x = d.obs.to(st.device)
-        y = torch.tensor(d.act, device=st.device, dtype=int)
-        loss_tensor = loss_fn(model(st.aug(x)), y)
-        replay_buffer.update_weight(ids, loss_tensor)
-        loss = loss_tensor.mean()
-        loss.backward()
-        optimizer.step()
-        if batch % plot_interval == plot_interval - 1:
-            logging(batch, loss.item(), -1, *complex_hash(model, 2))
 
 from neptune.new.types import File
 import plotly.express as px
@@ -84,13 +71,10 @@ def train_model(trial, model, optimizer, scheduler, config):
     st.run_id = hex(int(time()))[2:]
     print(f'started train #{st.run_id}', flush=True)
     for epoch in trange(config['epochs']):
-        def train_logging(batch, loss, acc, hx, hy):
+        def train_logging(batch_pos, loss, acc, hx, hy):
             pathx.append(hx)
             pathy.append(hy)
-            if config['use_per']:
-                step = epoch + (batch + 1) / (len(st.train_loader) // config['batch_size'])
-            else:
-                step = epoch + (batch + 1) / len(st.train_loader)
+            step = epoch + batch_pos
             if config['neptune_logging']:
                 st.run['train/epoch'].log(step, step=step)
                 st.run['train/train_loss'].log(loss, step=step)
@@ -105,23 +89,30 @@ def train_model(trial, model, optimizer, scheduler, config):
                 st.run['train/val_acc'].log(acc, step=step)
             print(f'step: {step}, loss: {loss}, acc: {acc}, hx: {pathx[-1] if pathx else -1}, hy: {pathy[-1] if pathy else -1}')
             min_loss = min(min_loss, loss)
-            trial.report(min_loss, epoch)
-            if trial.should_prune():
-                raise optuna.TrialPruned()
+            if trial:
+                trial.report(min_loss, epoch)
+                if trial.should_prune():
+                    raise optuna.TrialPruned()
             name = f'{st.run_id}_{epoch}'
             save_to_zoo(model, name, loss, acc)
-        if config['use_per']:
-            train_epoch_with_per(model, st.train_loader, optimizer, len(st.train_loader) // config['batch_size'], config['batch_size'], train_logging, config['plot_interval'])
-        else:
-            train_epoch_without_per(model, st.train_loader, optimizer, train_logging, config['plot_interval'])
+
+        train_epoch(
+            model,
+            st.train_set,
+            optimizer,
+            config['k_epoch'] * len(st.train_set) // config['batch_size'] + 1,
+            config['batch_size'],
+            config['per_alpha'],
+            config['per_beta'],
+            train_logging,
+            config['plot_interval'])
         scheduler.step()
         with torch.no_grad():
-            test_logging(*test(model, st.val_loader))
+            test_logging(*test(model, st.val_set))
     return min_loss
 
 from data import Plug, build_dataset, build_model, build_optimizer, build_lr_scheduler
 from time import time
-from torch.utils.data import DataLoader
 from plotly import express as px
 from autoaug import build_transforms
 import neptune.new as neptune
@@ -137,26 +128,16 @@ def run(trial, config):
 
     model = build_model(config)
     optimizer = build_optimizer(model.parameters(), config)
-    train_set = build_dataset(config['train'])
+    st.train_set = build_dataset(config['train'])
     st.aug = build_transforms(config)
     # pics = st.aug(torch.stack([e[0] for e in train_set[:5]]))
     # for pic in pics:
     #     pic = pic.clip(0, 1)
     #     px.imshow(pic.permute(1, 2, 0)).show()
-    if config['use_per']:
-        if train_set:
-            st.train_loader = PrioritizedReplayBuffer(size=len(train_set), alpha=config['per_alpha'], beta=config['per_beta'])
-            for x, y in train_set:
-                st.train_loader.add(Batch(obs=x, act=y, rew=0, done=False, weight=1e6))
-        else:
-            st.train_loader = None
-    else:
-        st.train_loader = DataLoader(train_set, batch_size=config['batch_size'], shuffle=True) if train_set else None
     scheduler = build_lr_scheduler(optimizer, config)
-    val_set, test_set = build_dataset(config['val']), build_dataset(config['test'])
-    st.val_loader = DataLoader(val_set, batch_size=config['batch_size'], shuffle=False) if val_set else None
-    st.test_loader = DataLoader(test_set, batch_size=config['batch_size'], shuffle=False) if test_set else None
+    st.val_set  = build_dataset(config['val']), 
+    st.test_set = build_dataset(config['test'])
     result = train_model(trial, model, optimizer, scheduler, config) if train_set else None
-    # save_to_zoo(model, f'{st.run_id}_final', *test(model, st.val_loader))
-    solve_test(model, st.test_loader, f'solution_{model.loader}_{st.run_id}')
+    # save_to_zoo(model, f'{st.run_id}_final', *test(model, st.val_set))
+    solve_test(model, st.test_set, f'solution_{model.loader}_{st.run_id}')
     return result

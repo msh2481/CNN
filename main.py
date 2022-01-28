@@ -28,6 +28,7 @@ def objective(trial):
 
         'model': 'Dummy()',
         'batch_size': 512,
+        'k_epoch': 1, 
         'plot_interval': 10,
         'train': 'train_v2.bin',
         'use_per': True,
