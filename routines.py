@@ -108,7 +108,7 @@ def train_model(trial, model, optimizer, scheduler, config):
             name = f'{st.run_id}_{epoch}'
             save_to_zoo(model, name, loss, acc)
         if config['use_per']:
-            train_epoch_with_per(model, st.train_loader, optimizer, len(train_loader) // config['batch_size'], config['batch_size'], train_logging, config['plot_interval'])
+            train_epoch_with_per(model, st.train_loader, optimizer, len(st.train_loader) // config['batch_size'], config['batch_size'], train_logging, config['plot_interval'])
         else:
             train_epoch_without_per(model, st.train_loader, optimizer, train_logging, config['plot_interval'])
         scheduler.step()
