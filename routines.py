@@ -64,7 +64,7 @@ def train_epoch_with_per(model, replay_buffer, optimizer, batches_per_epoch, bat
         ids = replay_buffer.sample_indices(batch_size)
         d = replay_buffer[ids]
         x = d.obs.to(st.device)
-        y = torch.tensor(d.act, device=st.device)
+        y = torch.tensor(d.act, device=st.device, dtype=int)
         loss_tensor = loss_fn(model(st.aug(x)), y)
         replay_buffer.update_weight(ids, loss_tensor)
         loss = loss_tensor.mean()
