@@ -57,12 +57,13 @@ def train_epoch(model, dataset, optimizer, n_batches, batch_size, alpha, beta, l
         y = targets[batch_indices[batch_idx]].to(st.device)
         optimizer.zero_grad()
         outputs = model(st.aug(x))
-        loss = (F.nll_loss(outputs, y, reduction='none') * importance_sampling_weights[batch_idx]).mean()
+        raw_loss = F.nll_loss(outputs, y, reduction='none')
+        loss = (raw_loss * importance_sampling_weights[batch_idx]).mean()
         acc += (outputs.argmax(dim=-1) == y).float().mean().item()
         loss.backward()
         optimizer.step()
         if batch_idx % plot_interval == plot_interval - 1:
-            logging((batch_idx + 1) / n_batches, loss.item(), acc / plot_interval, *complex_hash(model, 2))
+            logging((batch_idx + 1) / n_batches, raw_loss.mean().item(), acc / plot_interval, *complex_hash(model, 2))
             acc = 0
 
 from neptune.new.types import File
