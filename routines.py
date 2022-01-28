@@ -6,13 +6,20 @@ from stats import complex_hash
 from tqdm import trange, tqdm
 from torch.nn import functional as F
 
+def get_output(model, data):
+    results = []
+    step = 100
+    for i in range(0, len(data), step):
+        batch = data[i : min(i + 100, len(data))]
+        results.append(model(batch.to(st.device)))
+    return torch.cat(results, dim=0).cpu()
+
 def test(model, dataset):
     if dataset is None:
         return
     model.eval()
     x, y = dataset
-    x, y = x.to(st.device), y.to(st.device) 
-    p = model(x)
+    p = get_output(model, x)
     loss = F.nll_loss(p, y)
     acc = (p.argmax(dim=-1) == y).float().mean()
     return loss.item(), acc.item()
@@ -28,16 +35,15 @@ def solve_test(model, dataset, name):
         return
     model.eval()
     with torch.no_grad():
-        predictions = model(dataset).cpu().numpy()
+        predictions = get_output(model, dataset).numpy()
     print('saved', len(predictions), 'predictions to ', name)
     write_solution(f'{name}.csv', predictions)
 
 import torch.distributions as dist
 def train_epoch(model, dataset, optimizer, n_batches, batch_size, alpha, beta, logging, plot_interval):
     data, targets = dataset
-    data, targets = data.to(st.device), targets.to(st.device)
     with torch.no_grad():
-        outputs = model(data)
+        outputs = get_output(model, data)
         loss = F.nll_loss(outputs, targets, reduction='none')
         assert loss.shape == (len(data), )
         probs = F.softmax(loss * alpha, dim=-1)
@@ -47,8 +53,8 @@ def train_epoch(model, dataset, optimizer, n_batches, batch_size, alpha, beta, l
         importance_sampling_weights = importance_sampling_weights.to(st.device)
     acc = 0
     for batch_idx in range(n_batches):
-        x = data[batch_indices[batch_idx]]
-        y = targets[batch_indices[batch_idx]]
+        x = data[batch_indices[batch_idx]].to(st.device)
+        y = targets[batch_indices[batch_idx]].to(st.device)
         optimizer.zero_grad()
         outputs = model(st.aug(x))
         loss = (F.nll_loss(outputs, y, reduction='none') * importance_sampling_weights[batch_idx]).mean()
